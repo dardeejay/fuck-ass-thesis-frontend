@@ -87,6 +87,34 @@ export default function DashboardPage() {
     }
   }
 
+  const recommendationTone =
+    aiRecommendation.level === "high"
+      ? {
+          shell:
+            "border-destructive/30 bg-[radial-gradient(circle_at_top,_color-mix(in_oklab,var(--destructive)_18%,transparent),transparent_55%),linear-gradient(180deg,color-mix(in_oklab,var(--card)_88%,var(--destructive)_12%),var(--card))]",
+          iconWrap: "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20",
+          eyebrow: "text-destructive",
+          pulse: "bg-destructive/12 text-destructive ring-1 ring-destructive/20",
+          cta: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        }
+      : aiRecommendation.level === "medium"
+        ? {
+            shell:
+              "border-warning/30 bg-[radial-gradient(circle_at_top,_color-mix(in_oklab,var(--warning)_16%,transparent),transparent_55%),linear-gradient(180deg,color-mix(in_oklab,var(--card)_90%,var(--warning)_10%),var(--card))]",
+            iconWrap: "bg-warning text-warning-foreground shadow-lg shadow-warning/20",
+            eyebrow: "text-warning",
+            pulse: "bg-warning/12 text-warning ring-1 ring-warning/20",
+            cta: "bg-warning text-warning-foreground hover:bg-warning/90",
+          }
+        : {
+            shell:
+              "border-primary/30 bg-[radial-gradient(circle_at_top,_color-mix(in_oklab,var(--primary)_16%,transparent),transparent_55%),linear-gradient(180deg,color-mix(in_oklab,var(--card)_90%,var(--primary)_10%),var(--card))]",
+            iconWrap: "bg-primary text-primary-foreground shadow-lg shadow-primary/20",
+            eyebrow: "text-primary",
+            pulse: "bg-primary/12 text-primary ring-1 ring-primary/20",
+            cta: "bg-primary text-primary-foreground hover:bg-primary/90",
+          }
+
   const getImpactBadge = (impact: string) => {
     switch (impact) {
       case "critical":
@@ -100,44 +128,108 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* AI Recommendation Banner */}
-      <Card className={`border-2 ${getRecommendationColor(aiRecommendation.level)}`}>
-        <CardContent className="p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-            <div className="flex items-start gap-4 flex-1">
-              <div className="p-3 rounded-full bg-destructive/20">
-                <AlertTriangle className="h-8 w-8 text-destructive" />
+      {/* AI Recommendation Centerpiece */}
+      <Card className={`overflow-hidden border-2 ${recommendationTone.shell}`}>
+        <CardContent className="p-0">
+          <div className="grid gap-0 lg:grid-cols-[1.5fr_0.9fr]">
+            <div className="flex flex-col items-center px-6 py-8 text-center sm:px-10 sm:py-12 lg:items-start lg:px-12 lg:text-left">
+              <div className={`mb-5 inline-flex h-16 w-16 items-center justify-center rounded-3xl ${recommendationTone.iconWrap}`}>
+                <AlertTriangle className="h-8 w-8" />
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h2 className="text-2xl font-bold text-foreground">
-                    AI Recommendation: {aiRecommendation.recommendation}
-                  </h2>
-                  <Badge variant="outline" className="text-muted-foreground border-muted-foreground/30">
-                    {aiRecommendation.confidence}% confidence
-                  </Badge>
-                </div>
-                <p className="text-muted-foreground leading-relaxed">
-                  {aiRecommendation.reason}
+              <p className={`text-sm font-semibold tracking-[0.24em] uppercase ${recommendationTone.eyebrow}`}>
+                AI Suspension Recommendation
+              </p>
+              <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+                {aiRecommendation.recommendation}
+              </h1>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+                {aiRecommendation.reason}
+              </p>
+
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                <Badge className={`border-0 px-3 py-1 text-sm ${recommendationTone.pulse}`}>
+                  {aiRecommendation.confidence}% confidence
+                </Badge>
+                <Badge variant="outline" className="border-border/70 px-3 py-1 text-sm text-muted-foreground">
+                  <MapPin className="mr-1 h-3.5 w-3.5" />
+                  {currentWeather.location}
+                </Badge>
+                <Badge variant="outline" className={`px-3 py-1 text-sm ${getRecommendationColor(aiRecommendation.level)}`}>
+                  Risk Level: {aiRecommendation.level}
+                </Badge>
+              </div>
+
+              <div className="mt-8 w-full max-w-3xl rounded-2xl border border-border/70 bg-background/70 p-4 sm:p-5">
+                <p className="text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
+                  Affected School Levels
                 </p>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Olongapo City -</span>
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                   {aiRecommendation.affectedLevels.map((level) => (
-                    <Badge key={level} variant="secondary" className="text-xs">
-                      {level}
-                    </Badge>
+                    <div
+                      key={level}
+                      className="rounded-2xl border border-destructive/20 bg-destructive/8 px-4 py-4 text-center shadow-sm"
+                    >
+                      <p className="text-sm font-semibold tracking-wide text-destructive">
+                        {level}
+                      </p>
+                    </div>
                   ))}
                 </div>
               </div>
+
+              <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                <Button variant="outline" className="border-border bg-background/70">
+                  View Details
+                </Button>
+                <Button className={recommendationTone.cta}>
+                  Issue Suspension
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-3">
-              <Button variant="outline" className="border-border">
-                View Details
-              </Button>
-              <Button className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Issue Suspension
-              </Button>
+
+            <div className="border-t border-border/60 bg-background/50 p-6 sm:p-8 lg:border-t-0 lg:border-l">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+                <div className="rounded-2xl border border-border/70 bg-background/80 p-5">
+                  <p className="text-xs font-medium tracking-[0.2em] uppercase text-muted-foreground">
+                    Live Conditions
+                  </p>
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Rainfall</p>
+                      <p className="text-2xl font-semibold text-foreground">{currentWeather.rainfall}mm</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Wind</p>
+                      <p className="text-2xl font-semibold text-foreground">{currentWeather.windSpeed} km/h</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Humidity</p>
+                      <p className="text-xl font-semibold text-foreground">{currentWeather.humidity}%</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Updated</p>
+                      <p className="text-xl font-semibold text-foreground">{currentWeather.lastUpdated}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border/70 bg-background/80 p-5">
+                  <p className="text-xs font-medium tracking-[0.2em] uppercase text-muted-foreground">
+                    Highest Risk Drivers
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    {aiRecommendation.factors.slice(0, 3).map((factor) => (
+                      <div key={factor.name} className="flex items-center justify-between gap-3 rounded-xl bg-secondary/40 px-3 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{factor.name}</p>
+                          <p className="text-xs text-muted-foreground">{factor.value}</p>
+                        </div>
+                        {getImpactBadge(factor.impact)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
