@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { usePathname } from "next/navigation"
+import Link from "next/link"
+import { signOut, useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,10 +31,14 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  const { data: session } = useSession()
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
+  const userName = session?.user?.name ?? "Admin User"
+  const userEmail = session?.user?.email ?? "admin@olongapo.gov.ph"
+  const userInitial = userName.charAt(0).toUpperCase()
 
 
   return (
@@ -120,18 +125,17 @@ export default function DashboardLayout({
 
         {/* Logout */}
         <div className="p-3 border-t border-sidebar-border">
-          <Link href="/">
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10",
-                collapsed ? "px-2 justify-center" : "justify-start"
-              )}
-            >
-              <LogOut className="h-5 w-5" />
-              {!collapsed && <span className="ml-2">Logout</span>}
-            </Button>
-          </Link>
+          <Button
+            variant="ghost"
+            className={cn(
+              "w-full text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10",
+              collapsed ? "justify-center px-2" : "justify-start"
+            )}
+            onClick={() => signOut({ callbackUrl: "/" })}
+          >
+            <LogOut className="h-5 w-5" />
+            {!collapsed && <span className="ml-2">Logout</span>}
+          </Button>
         </div>
       </aside>
 
@@ -157,11 +161,11 @@ export default function DashboardLayout({
           </div>
           <div className="ml-auto flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-foreground">Admin User</p>
-              <p className="text-xs text-muted-foreground">admin@olongapo.gov.ph</p>
+              <p className="text-sm font-medium text-foreground">{userName}</p>
+              <p className="text-xs text-muted-foreground">{userEmail}</p>
             </div>
             <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center">
-              <span className="text-sm font-medium text-primary">A</span>
+              <span className="text-sm font-medium text-primary">{userInitial}</span>
             </div>
           </div>
           <div>

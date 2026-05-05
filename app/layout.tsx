@@ -1,17 +1,19 @@
-import type { Metadata } from 'next'
-import { Inter, Geist_Mono } from 'next/font/google'
-import './globals.css'
-import { ThemeProvider } from '@/components/theme-provider';
-import { cn } from '@/lib/utils';
+import { getServerAuthSession } from '@/auth'
+import { AuthSessionProvider } from '@/components/auth/session-provider'
+import { ThemeProvider } from '@/components/theme-provider'
 import '@/lib/env'
+import { cn } from '@/lib/utils'
+import type { Metadata } from 'next'
+import { Geist_Mono, Inter } from 'next/font/google'
+import './globals.css'
 
-
-const inter = Inter({subsets:['latin'],variable:'--font-sans'})
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 
 const fontMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
+  subsets: ['latin'],
+  variable: '--font-mono',
 })
+
 export const metadata: Metadata = {
   title: 'Project Handa - AI Decision Support System',
   description: 'Hazard Assessment for Notification and Decision Automation - AI Based Decision Support System for Class Suspension',
@@ -35,18 +37,19 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const session = await getServerAuthSession()
+
   return (
     <html lang="en" className="bg-background">
       <body className={cn(inter.variable, fontMono.variable, 'font-sans antialiased')}>
-        <ThemeProvider>
-        {children}
-        {process.env.NODE_ENV === 'production'}
-        </ThemeProvider>
+        <AuthSessionProvider session={session}>
+          <ThemeProvider>{children}</ThemeProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   )
