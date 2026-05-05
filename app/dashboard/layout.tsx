@@ -10,6 +10,7 @@ import {
   Shield,
   LayoutDashboard,
   History,
+  TestTube2,
   Users,
   LogOut,
   Menu,
@@ -23,6 +24,11 @@ import { useTheme } from "next-themes"
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Historical Data", href: "/dashboard/historical", icon: History },
+  {
+    name: "Scenario Simulation",
+    href: "/dashboard/simulation",
+    icon: TestTube2,
+  },
   { name: "User Management", href: "/dashboard/users", icon: Users },
 ]
 
@@ -40,7 +46,6 @@ export default function DashboardLayout({
   const userEmail = session?.user?.email ?? "admin@olongapo.gov.ph"
   const userInitial = userName.charAt(0).toUpperCase()
 
-
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile sidebar overlay */}
@@ -54,29 +59,35 @@ export default function DashboardLayout({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300",
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300",
           collapsed ? "w-16" : "w-64",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         {/* Logo */}
-        <div className={cn(
-          "flex items-center gap-3 h-16 px-4 border-b border-sidebar-border",
-          collapsed && "justify-center"
-        )}>
-          <div className="p-1.5 bg-primary/20 rounded-lg shrink-0">
+        <div
+          className={cn(
+            "flex h-16 items-center gap-3 border-b border-sidebar-border px-4",
+            collapsed && "justify-center"
+          )}
+        >
+          <div className="shrink-0 rounded-lg bg-primary/20 p-1.5">
             <Shield className="h-5 w-5 text-primary" />
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <span className="text-sm font-bold text-sidebar-foreground block">Project HANDA</span>
-              <span className="text-xs text-muted-foreground truncate block">Olongapo City</span>
+              <span className="block text-sm font-bold text-sidebar-foreground">
+                Project HANDA
+              </span>
+              <span className="block truncate text-xs text-muted-foreground">
+                Olongapo City
+              </span>
             </div>
           )}
           <Button
             variant="ghost"
             size="icon"
-            className="ml-auto lg:hidden text-sidebar-foreground"
+            className="ml-auto text-sidebar-foreground lg:hidden"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="h-5 w-5" />
@@ -84,7 +95,7 @@ export default function DashboardLayout({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 space-y-1 p-3">
           {navigation.map((item) => {
             const isActive = pathname === item.href
             return (
@@ -92,7 +103,7 @@ export default function DashboardLayout({
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-sidebar-accent text-sidebar-primary"
                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
@@ -108,27 +119,32 @@ export default function DashboardLayout({
         </nav>
 
         {/* Collapse toggle - desktop only */}
-        <div className="hidden lg:block p-3 border-t border-sidebar-border">
+        <div className="hidden border-t border-sidebar-border p-3 lg:block">
           <Button
             variant="ghost"
             size="sm"
             className={cn(
-              "w-full text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent",
+              "w-full text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
               collapsed && "px-2"
             )}
             onClick={() => setCollapsed(!collapsed)}
           >
-            <ChevronLeft className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")} />
+            <ChevronLeft
+              className={cn(
+                "h-4 w-4 transition-transform",
+                collapsed && "rotate-180"
+              )}
+            />
             {!collapsed && <span className="ml-2">Collapse</span>}
           </Button>
         </div>
 
         {/* Logout */}
-        <div className="p-3 border-t border-sidebar-border">
+        <div className="border-t border-sidebar-border p-3">
           <Button
             variant="ghost"
             className={cn(
-              "w-full text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10",
+              "w-full text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive",
               collapsed ? "justify-center px-2" : "justify-start"
             )}
             onClick={() => signOut({ callbackUrl: "/" })}
@@ -140,41 +156,54 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <div className={cn(
-        "transition-all duration-300",
-        collapsed ? "lg:pl-16" : "lg:pl-64"
-      )}>
+      <div
+        className={cn(
+          "transition-all duration-300",
+          collapsed ? "lg:pl-16" : "lg:pl-64"
+        )}
+      >
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center h-16 px-4 bg-background/95 backdrop-blur border-b border-border">
+        <header className="sticky top-0 z-30 flex h-16 items-center border-b border-border bg-background/95 px-4 backdrop-blur">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden text-foreground"
+            className="text-foreground lg:hidden"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-5 w-5" />
           </Button>
           <div className="ml-4 lg:ml-0">
             <h1 className="text-lg font-semibold text-foreground">
-              {navigation.find((item) => item.href === pathname)?.name || "Dashboard"}
+              {navigation.find((item) => item.href === pathname)?.name ||
+                "Dashboard"}
             </h1>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <div className="text-right hidden sm:block">
+            <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-foreground">{userName}</p>
               <p className="text-xs text-muted-foreground">{userEmail}</p>
             </div>
-            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center">
-              <span className="text-sm font-medium text-primary">{userInitial}</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20">
+              <span className="text-sm font-medium text-primary">
+                {userInitial}
+              </span>
             </div>
           </div>
           <div>
             {/* dark mode toggle */}
-            <Button variant="ghost" size="icon" className="ml-2 text-foreground" onClick={() => {
-              setTheme(resolvedTheme === "dark" ? "light" : "dark")
-            }} >
-              {resolvedTheme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ml-2 text-foreground"
+              onClick={() => {
+                setTheme(resolvedTheme === "dark" ? "light" : "dark")
+              }}
+            >
+              {resolvedTheme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
             </Button>
           </div>
         </header>
