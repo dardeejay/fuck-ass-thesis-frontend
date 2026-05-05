@@ -12,6 +12,7 @@ import {
   History,
   TestTube2,
   Users,
+  Megaphone,
   LogOut,
   Menu,
   X,
@@ -29,6 +30,7 @@ const navigation = [
     href: "/dashboard/simulation",
     icon: TestTube2,
   },
+  { name: "Post Automation", href: "/dashboard/social-posts", icon: Megaphone },
   { name: "User Management", href: "/dashboard/users", icon: Users },
 ]
 
