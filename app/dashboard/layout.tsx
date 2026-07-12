@@ -19,6 +19,8 @@ import {
   ChevronLeft,
   Moon,
   Sun,
+  ClipboardCheck,
+  Cpu,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 
@@ -31,6 +33,8 @@ const navigation = [
     icon: TestTube2,
   },
   { name: "Post Automation", href: "/dashboard/social-posts", icon: Megaphone },
+  { name: "Label Today", href: "/dashboard/label", icon: ClipboardCheck },
+  { name: "Model Training", href: "/dashboard/model", icon: Cpu },
   { name: "User Management", href: "/dashboard/users", icon: Users },
 ]
 

@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -22,6 +20,58 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  handa-api:
+    build:
+      context: ../project-handa-backend
+    container_name: project-handa-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      # Same Postgres instance the `web` service uses, different tables
+      # (weather_snapshots / suspension_labels / model_versions) -- see
+      # project-handa-backend/app/db.py.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-project_handa}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\"",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+    container_name: project-handa-web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      handa-api:
+        condition: service_healthy
+    environment:
+      AUTH_SECRET: ${AUTH_SECRET}
+      # Service-name hostname (compose's internal network), not localhost —
+      # this container talks to the `postgres` and `handa-api` services, not
+      # the host machine.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-project_handa}
+      POSTGRES_DB: ${POSTGRES_DB:-project_handa}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PORT: 5432
+      HANDA_API_URL: http://handa-api:8000
+    ports:
+      - "3000:3000"
 
 volumes:
   postgres_data:

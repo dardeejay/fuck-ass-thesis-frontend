@@ -9,6 +9,7 @@ const envSchema = z.object({
   POSTGRES_USER: z.string().min(1),
   POSTGRES_PASSWORD: z.string().min(1),
   POSTGRES_PORT: z.coerce.number().int().positive(),
+  HANDA_API_URL: z.string().url(),
 })
 
 const parsedEnv = envSchema.safeParse({
@@ -19,6 +20,7 @@ const parsedEnv = envSchema.safeParse({
   POSTGRES_USER: process.env.POSTGRES_USER,
   POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD,
   POSTGRES_PORT: process.env.POSTGRES_PORT,
+  HANDA_API_URL: process.env.HANDA_API_URL,
 })
 
 if (!parsedEnv.success) {

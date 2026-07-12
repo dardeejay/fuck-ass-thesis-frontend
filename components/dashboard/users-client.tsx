@@ -43,7 +43,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { CheckCircle, Edit, Mail, Plus, Search, Shield, Trash2, User, Users } from 'lucide-react'
 
-type Role = 'ADMIN' | 'USER'
+type Role = 'ADMIN' | 'USER' | 'VIEWER'
 
 type ManagedUser = {
   id: string
@@ -77,7 +77,9 @@ function formatDate(value: string) {
 }
 
 function getRoleLabel(role: Role) {
-  return role === 'ADMIN' ? 'Admin' : 'User'
+  if (role === 'ADMIN') return 'Admin'
+  if (role === 'VIEWER') return 'Viewer'
+  return 'User'
 }
 
 export default function UsersClient({

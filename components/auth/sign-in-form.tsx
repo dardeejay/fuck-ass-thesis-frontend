@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { AlertTriangle, CloudRain, Shield } from 'lucide-react'
+import { Shield } from 'lucide-react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -38,63 +38,32 @@ export function SignInForm() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <div className="bg-secondary/50 hidden flex-col justify-between p-12 lg:flex lg:w-1/2">
-        <div>
-          <div className="mb-2 flex items-center gap-3">
-            <div className="rounded-lg bg-primary/20 p-2">
-              <Shield className="h-8 w-8 text-primary" />
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-6 py-12">
+      <div className="w-full max-w-md">
+        <div className="mb-8 space-y-3 text-center">
+          <div className="flex items-center justify-center gap-3">
+            <div className="rounded-xl border border-border bg-background p-2">
+              <Shield className="h-5 w-5 text-primary" />
             </div>
-            <span className="text-2xl font-bold text-foreground">Project HANDA</span>
+            <span className="text-lg font-semibold tracking-tight text-foreground">Project HANDA</span>
           </div>
-          <p className="ml-14 text-sm text-muted-foreground">
-            Hazard Assessment for Notification and Decision Automation
-          </p>
-        </div>
-
-        <div className="space-y-8">
-          <div className="space-y-4">
-            <h1 className="text-balance text-4xl leading-tight font-bold text-foreground">
-              AI-Powered Decision Support for Class Suspension
-            </h1>
-            <p className="text-lg leading-relaxed text-muted-foreground">
-              Making informed decisions to protect students and educators during hazardous weather conditions.
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Sign in</h1>
+            <p className="text-sm text-muted-foreground">
+              Access the class suspension dashboard.
             </p>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-lg border border-border bg-card/50 p-4">
-              <CloudRain className="text-chart-2 mb-2 h-6 w-6" />
-              <h3 className="font-semibold text-foreground">Weather Analysis</h3>
-              <p className="text-sm text-muted-foreground">Real-time weather data integration</p>
-            </div>
-            <div className="rounded-lg border border-border bg-card/50 p-4">
-              <AlertTriangle className="text-warning mb-2 h-6 w-6" />
-              <h3 className="font-semibold text-foreground">Smart Alerts</h3>
-              <p className="text-sm text-muted-foreground">AI-driven suspension recommendations</p>
-            </div>
-          </div>
         </div>
 
-        <p className="text-sm text-muted-foreground">City Government of Olongapo • DepEd Olongapo • PAGASA</p>
-      </div>
-
-      <div className="flex flex-1 items-center justify-center p-8">
-        <Card className="w-full max-w-md border-border bg-card">
-          <CardHeader className="text-center">
-            <div className="mb-4 flex items-center justify-center gap-2 lg:hidden">
-              <div className="rounded-lg bg-primary/20 p-2">
-                <Shield className="h-6 w-6 text-primary" />
-              </div>
-              <span className="text-xl font-bold text-foreground">Project HANDA</span>
-            </div>
-            <CardTitle className="text-2xl text-foreground">Welcome Back</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Sign in to access the admin dashboard
+        <Card className="border-border/80 bg-background shadow-sm">
+          <CardHeader className="space-y-1 pb-4 text-left">
+            <CardTitle className="text-lg text-foreground">Administrator Login</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              Use your assigned account credentials to continue.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
               {error ? (
                 <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
                   {error}
@@ -133,18 +102,22 @@ export function SignInForm() {
 
               <Button
                 type="submit"
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                className="w-full"
                 disabled={isLoading}
               >
                 {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
 
-              <p className="mt-4 text-center text-sm text-muted-foreground">
+              <p className="border-t border-border pt-4 text-center text-sm text-muted-foreground">
                 Seeded admin: admin@olongapo.gov.ph / admin123
               </p>
             </form>
           </CardContent>
         </Card>
+
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          City Government of Olongapo, DepEd Olongapo, and PAGASA
+        </p>
       </div>
     </div>
   )
