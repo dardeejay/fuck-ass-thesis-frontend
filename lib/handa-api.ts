@@ -53,6 +53,27 @@ export type LivePredictionResponse = PredictionResponse & {
   sources: { rainfallSource: string; weatherSource: string }
 }
 
+export type ForecastStep = {
+  timestamp: string
+  tmax: number
+  tmin: number
+  rh: number
+  windSpeed: number
+  rainfall: number
+  weatherId: number
+  weatherMain: string
+  probability: number
+  riskLevel: "low" | "moderate" | "high"
+  recommendation: string
+}
+
+export type Forecast = {
+  modelName: string
+  generatedAt: string
+  source: string
+  steps: ForecastStep[]
+}
+
 export type SuspensionRecord = {
   date: string
   rainfallLevel: string | null
@@ -180,6 +201,46 @@ export async function getLivePrediction(): Promise<LivePredictionResponse> {
       month: data.conditions_used.month,
     },
     sources: { rainfallSource: data.sources.rainfall_source, weatherSource: data.sources.weather_source },
+  }
+}
+
+export async function getForecast(): Promise<Forecast> {
+  const data = await handaFetch<{
+    model_name: string
+    generated_at: string
+    source: string
+    steps: Array<{
+      timestamp: string
+      tmax: number
+      tmin: number
+      rh: number
+      wind_speed: number
+      rainfall: number
+      weather_id: number
+      weather_main: string
+      probability: number
+      risk_level: "low" | "moderate" | "high"
+      recommendation: string
+    }>
+  }>("/v1/predictions/forecast")
+
+  return {
+    modelName: data.model_name,
+    generatedAt: data.generated_at,
+    source: data.source,
+    steps: data.steps.map((s) => ({
+      timestamp: s.timestamp,
+      tmax: s.tmax,
+      tmin: s.tmin,
+      rh: s.rh,
+      windSpeed: s.wind_speed,
+      rainfall: s.rainfall,
+      weatherId: s.weather_id,
+      weatherMain: s.weather_main,
+      probability: s.probability,
+      riskLevel: s.risk_level,
+      recommendation: s.recommendation,
+    })),
   }
 }
 

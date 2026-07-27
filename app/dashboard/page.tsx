@@ -1,13 +1,15 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { HourlyForecastStrip } from "@/components/dashboard/hourly-forecast-strip"
 import { OverviewCharts } from "@/components/dashboard/overview-charts"
-import { getLivePrediction, getSuspensionHistory } from "@/lib/handa-api"
+import { getForecast, getLivePrediction, getSuspensionHistory } from "@/lib/handa-api"
 import {
   affectedLevelsFor,
   factorForFeature,
   FEATURE_LABELS,
   impactOrder,
+  poolForecastOutlook,
 } from "@/lib/handa-adapter"
 import { suspensionsByMonth } from "@/lib/suspension-aggregates"
 import {
@@ -21,6 +23,13 @@ import {
 } from "lucide-react"
 
 export const dynamic = "force-dynamic" // live weather/PAGASA data, never cache
+
+const peakTimeFormatter = new Intl.DateTimeFormat("en-PH", {
+  weekday: "short",
+  hour: "numeric",
+  hour12: true,
+  timeZone: "Asia/Manila",
+})
 
 function getRecommendationColor(level: string) {
   switch (level) {
@@ -45,18 +54,50 @@ function getImpactBadge(impact: string) {
 }
 
 export default async function DashboardPage() {
-  const [live, history] = await Promise.all([getLivePrediction(), getSuspensionHistory()])
+  const [live, history, forecast] = await Promise.all([
+    getLivePrediction(),
+    getSuspensionHistory(),
+    // Forecast is a supplementary strip, not core to the page — an
+    // OpenWeatherMap hiccup shouldn't take down the whole dashboard.
+    getForecast().catch(() => null),
+  ])
 
-  const level = live.riskLevel === "moderate" ? "medium" : live.riskLevel
-  const recommendation =
-    live.riskLevel === "high" ? "SUSPEND" : live.riskLevel === "moderate" ? "PARTIAL SUSPEND" : "NO SUSPEND"
-  const confidence = Math.round(50 + Math.abs(live.probability - 0.5) * 100)
-  const affectedLevels = affectedLevelsFor(live.riskLevel)
-  const windKmh = Math.round(live.conditionsUsed.windSpeed * 3.6)
+  // The hero card leads with the pooled forecast outlook (worst-case risk
+  // over the next `outlook.windowHours`), not just current conditions — a
+  // beneficiary deciding on suspensions cares more about what's coming than
+  // what the weather happens to be right now. Falls back to today's live
+  // prediction if the forecast pull failed.
+  const outlook = forecast ? poolForecastOutlook(forecast.steps, 24) : null
+
+  const level = outlook ? outlook.level : live.riskLevel === "moderate" ? "medium" : live.riskLevel
+  const recommendation = outlook
+    ? outlook.recommendation
+    : live.riskLevel === "high"
+      ? "SUSPEND"
+      : live.riskLevel === "moderate"
+        ? "PARTIAL SUSPEND"
+        : "NO SUSPEND"
+  const confidence = outlook ? outlook.confidence : Math.round(50 + Math.abs(live.probability - 0.5) * 100)
+  const affectedLevels = affectedLevelsFor(outlook ? outlook.peak.riskLevel : live.riskLevel)
+
+  const heroConditions = outlook
+    ? {
+        rainfall: outlook.peak.rainfall,
+        tmax: outlook.peak.tmax,
+        tmin: outlook.peak.tmin,
+        rh: outlook.peak.rh,
+        windSpeed: outlook.peak.windSpeed,
+        month: new Date(outlook.peak.timestamp).getMonth() + 1,
+      }
+    : live.conditionsUsed
+  const windKmh = Math.round(heroConditions.windSpeed * 3.6)
+  const peakTimeLabel = outlook ? peakTimeFormatter.format(new Date(outlook.peak.timestamp)) : null
+
+  const currentWindKmh = Math.round(live.conditionsUsed.windSpeed * 3.6)
 
   const factors = live.featureImportance.slice(0, 4).map(({ feature }) => ({
     name: FEATURE_LABELS[feature] ?? feature,
-    ...factorForFeature(feature, live.conditionsUsed),
+    ...factorForFeature(feature, heroConditions),
   })).sort((a, b) => impactOrder[b.impact] - impactOrder[a.impact])
 
   const recommendationTone =
@@ -140,17 +181,27 @@ export default async function DashboardPage() {
                 <AlertTriangle className="h-8 w-8" />
               </div>
               <p className={`text-sm font-semibold tracking-[0.24em] uppercase ${recommendationTone.eyebrow}`}>
-                AI Suspension Recommendation
+                {outlook ? `${outlook.windowHours}-Hour Suspension Outlook` : "AI Suspension Recommendation"}
               </p>
               <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
                 {recommendation}
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                {live.recommendation}
+                {outlook ? (
+                  <>Highest risk expected around <strong>{peakTimeLabel}</strong> — {outlook.peak.recommendation}</>
+                ) : (
+                  live.recommendation
+                )}
                 {live.pagasaWarning.level && (
                   <> PAGASA currently has a <strong>{live.pagasaWarning.level}</strong> rainfall warning covering Olongapo.</>
                 )}
               </p>
+              {outlook && (
+                <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
+                  Based on forecast steps, run through the same model validated on daily conditions —
+                  treat this outlook as indicative, not a substitute for on-the-ground judgment.
+                </p>
+              )}
 
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
                 <Badge className={`border-0 px-3 py-1 text-sm ${recommendationTone.pulse}`}>
@@ -160,6 +211,11 @@ export default async function DashboardPage() {
                   <MapPin className="mr-1 h-3.5 w-3.5" />
                   Olongapo City
                 </Badge>
+                {outlook && (
+                  <Badge variant="outline" className="border-border/70 px-3 py-1 text-sm text-muted-foreground">
+                    Peak: {peakTimeLabel}
+                  </Badge>
+                )}
                 <Badge variant="outline" className={`px-3 py-1 text-sm ${getRecommendationColor(level)}`}>
                   Risk Level: {level}
                 </Badge>
@@ -197,12 +253,12 @@ export default async function DashboardPage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
                 <div className="rounded-2xl border border-border/70 bg-background/80 p-5">
                   <p className="text-xs font-medium tracking-[0.2em] uppercase text-muted-foreground">
-                    Live Conditions
+                    {outlook ? `Forecasted Conditions at Peak (${peakTimeLabel})` : "Live Conditions"}
                   </p>
                   <div className="mt-4 grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Rainfall</p>
-                      <p className="text-2xl font-semibold text-foreground">{Math.round(live.conditionsUsed.rainfall)}mm</p>
+                      <p className="text-2xl font-semibold text-foreground">{Math.round(heroConditions.rainfall)}mm</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Wind</p>
@@ -210,7 +266,7 @@ export default async function DashboardPage() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Humidity</p>
-                      <p className="text-xl font-semibold text-foreground">{Math.round(live.conditionsUsed.rh)}%</p>
+                      <p className="text-xl font-semibold text-foreground">{Math.round(heroConditions.rh)}%</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">PAGASA Warning</p>
@@ -241,63 +297,72 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Weather Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Temperature</p>
-                <p className="text-2xl font-bold text-foreground">{Math.round(live.conditionsUsed.tmax)}°C</p>
-              </div>
-              <div className="p-3 bg-chart-3/20 rounded-lg">
-                <Thermometer className="h-5 w-5 text-chart-3" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {forecast && <HourlyForecastStrip steps={forecast.steps} />}
 
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Rainfall</p>
-                <p className="text-2xl font-bold text-foreground">{Math.round(live.conditionsUsed.rainfall)}mm</p>
+      {/* Current Conditions — today's actual live readings, kept distinct
+          from the hero card above (which now leads with the forecast
+          outlook) so the two time frames are never conflated. */}
+      <div>
+        <p className="mb-3 text-xs font-semibold tracking-[0.2em] uppercase text-muted-foreground">
+          Current Conditions
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="bg-card border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Temperature</p>
+                  <p className="text-2xl font-bold text-foreground">{Math.round(live.conditionsUsed.tmax)}°C</p>
+                </div>
+                <div className="p-3 bg-chart-3/20 rounded-lg">
+                  <Thermometer className="h-5 w-5 text-chart-3" />
+                </div>
               </div>
-              <div className="p-3 bg-chart-2/20 rounded-lg">
-                <CloudRain className="h-5 w-5 text-chart-2" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Wind Speed</p>
-                <p className="text-2xl font-bold text-foreground">{windKmh} km/h</p>
+          <Card className="bg-card border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Rainfall</p>
+                  <p className="text-2xl font-bold text-foreground">{Math.round(live.conditionsUsed.rainfall)}mm</p>
+                </div>
+                <div className="p-3 bg-chart-2/20 rounded-lg">
+                  <CloudRain className="h-5 w-5 text-chart-2" />
+                </div>
               </div>
-              <div className="p-3 bg-chart-5/20 rounded-lg">
-                <Wind className="h-5 w-5 text-chart-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Humidity</p>
-                <p className="text-2xl font-bold text-foreground">{Math.round(live.conditionsUsed.rh)}%</p>
+          <Card className="bg-card border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Wind Speed</p>
+                  <p className="text-2xl font-bold text-foreground">{currentWindKmh} km/h</p>
+                </div>
+                <div className="p-3 bg-chart-5/20 rounded-lg">
+                  <Wind className="h-5 w-5 text-chart-5" />
+                </div>
               </div>
-              <div className="p-3 bg-primary/20 rounded-lg">
-                <Droplets className="h-5 w-5 text-primary" />
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Humidity</p>
+                  <p className="text-2xl font-bold text-foreground">{Math.round(live.conditionsUsed.rh)}%</p>
+                </div>
+                <div className="p-3 bg-primary/20 rounded-lg">
+                  <Droplets className="h-5 w-5 text-primary" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <OverviewCharts featureImportance={live.featureImportance} monthlyTrend={suspensionsByMonth(history)} />

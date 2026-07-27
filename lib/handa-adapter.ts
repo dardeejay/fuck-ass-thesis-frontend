@@ -1,4 +1,4 @@
-import type { PredictionRequest, PredictionResponse } from "@/lib/handa-api"
+import type { ForecastStep, PredictionRequest, PredictionResponse } from "@/lib/handa-api"
 import type {
   WeatherSimulationInput,
   WeatherSimulationResult,
@@ -88,6 +88,36 @@ export function affectedLevelsFor(riskLevel: "low" | "moderate" | "high"): strin
   if (riskLevel === "high") return ["Pre-school", "Elementary", "High School"]
   if (riskLevel === "moderate") return ["Pre-school", "Elementary"]
   return ["None"]
+}
+
+export type ForecastOutlook = {
+  peak: ForecastStep
+  windowHours: number
+  level: "low" | "medium" | "high"
+  recommendation: "SUSPEND" | "PARTIAL SUSPEND" | "NO SUSPEND"
+  confidence: number
+}
+
+const FORECAST_STEP_HOURS = 3
+
+// Pools the per-step forecast into one headline suggestion for the window.
+// Uses worst-case (peak probability), not the average — mirrors how
+// TCWS/PAGASA warnings are read: plan for the peak risk in the window, not
+// its mean, since a single severe step justifies suspension regardless of
+// calmer steps around it.
+export function poolForecastOutlook(steps: ForecastStep[], windowHours = 24): ForecastOutlook | null {
+  const stepCount = Math.max(1, Math.round(windowHours / FORECAST_STEP_HOURS))
+  const window = steps.slice(0, stepCount)
+  if (window.length === 0) return null
+
+  const peak = window.reduce((worst, step) => (step.probability > worst.probability ? step : worst))
+
+  const level = peak.riskLevel === "moderate" ? "medium" : peak.riskLevel
+  const recommendation =
+    peak.riskLevel === "high" ? "SUSPEND" : peak.riskLevel === "moderate" ? "PARTIAL SUSPEND" : "NO SUSPEND"
+  const confidence = Math.round(50 + Math.abs(peak.probability - 0.5) * 100)
+
+  return { peak, windowHours: window.length * FORECAST_STEP_HOURS, level, recommendation, confidence }
 }
 
 export function predictionResponseToSimulationResult(
