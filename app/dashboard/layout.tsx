@@ -40,8 +40,10 @@ const navigation = [
 
 export default function DashboardLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode
+  modal: React.ReactNode
 }) {
   const { data: session } = useSession()
   const pathname = usePathname()
@@ -217,6 +219,8 @@ export default function DashboardLayout({
         {/* Page content */}
         <main className="p-4 md:p-6">{children}</main>
       </div>
+
+      {modal}
     </div>
   )
 }

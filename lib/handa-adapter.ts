@@ -13,7 +13,13 @@ export function simulationInputToPredictionRequest(
   input: WeatherSimulationInput
 ): PredictionRequest {
   return {
-    rainfall: input.rainfall,
+    // The form collects an hourly rain-rate (mm/hr), but the trained model
+    // was fit on daily accumulation (see backend analysis.py RAIN_THRESHOLDS,
+    // mm/24h) — naively projecting the hourly rate across a day so the value
+    // lands on the same scale the model was validated on. Tide level isn't a
+    // trained feature, so it can't be passed through to this real model; it
+    // only affects the local fallback in weather-simulation.ts.
+    rainfall: input.rainfall * 24,
     tmax: input.temperature,
     tmin: input.temperature,
     rh: input.humidity,

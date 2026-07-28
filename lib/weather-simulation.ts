@@ -2,12 +2,16 @@ import { z } from "zod"
 
 export const weatherSimulationInputSchema = z.object({
   temperature: z.coerce.number().min(15).max(45),
-  rainfall: z.coerce.number().min(0).max(500),
+  // Rain-rate in mm/hr, not a daily accumulation — see getRainfallImpact()
+  // for PAGASA's hourly rainfall-warning bands. 305mm/hr is the highest
+  // 1-hour rate ever recorded, used as a generous upper bound.
+  rainfall: z.coerce.number().min(0).max(305),
   windSpeed: z.coerce.number().min(0).max(250),
   humidity: z.coerce.number().min(0).max(100),
   floodRisk: z.enum(["low", "moderate", "high"]),
   visibility: z.enum(["good", "reduced", "poor"]),
   stormSignal: z.enum(["none", "signal-1", "signal-2", "signal-3"]),
+  tideLevel: z.enum(["low", "normal", "high", "storm-surge"]).default("normal"),
   notes: z.string().max(500).optional().default(""),
 })
 
@@ -39,20 +43,36 @@ const impactOrder: Record<ImpactLevel, number> = {
   critical: 2,
 }
 
+// Bands mirror PAGASA's hourly Rainfall Warning System (Yellow >=7.5mm/hr,
+// Orange >=15mm/hr, Red >=30mm/hr), not the daily-accumulation thresholds
+// used elsewhere for the trained suspension model.
 function getRainfallImpact(rainfall: number) {
-  if (rainfall >= 50) {
-    return { score: 38, impact: "critical" as const, value: "Extreme" }
-  }
-
   if (rainfall >= 30) {
-    return { score: 28, impact: "critical" as const, value: "Heavy" }
+    return { score: 38, impact: "critical" as const, value: "Red (Torrential)" }
   }
 
   if (rainfall >= 15) {
-    return { score: 16, impact: "warning" as const, value: "Moderate" }
+    return { score: 28, impact: "critical" as const, value: "Orange (Intense)" }
+  }
+
+  if (rainfall >= 7.5) {
+    return { score: 16, impact: "warning" as const, value: "Yellow (Moderate)" }
   }
 
   return { score: 4, impact: "normal" as const, value: "Light" }
+}
+
+function getTideImpact(tideLevel: WeatherSimulationInput["tideLevel"]) {
+  switch (tideLevel) {
+    case "storm-surge":
+      return { score: 16, impact: "critical" as const, value: "Storm Surge Risk" }
+    case "high":
+      return { score: 9, impact: "warning" as const, value: "High Tide" }
+    case "low":
+      return { score: 0, impact: "normal" as const, value: "Low Tide" }
+    default:
+      return { score: 2, impact: "normal" as const, value: "Normal Tide" }
+  }
 }
 
 function getWindImpact(windSpeed: number) {
@@ -143,10 +163,18 @@ export function simulateWeatherRecommendation(
   const floodRisk = getFloodRiskImpact(input.floodRisk)
   const visibility = getVisibilityImpact(input.visibility)
   const stormSignal = getStormSignalImpact(input.stormSignal)
+  const tide = getTideImpact(input.tideLevel)
 
   const heatPenalty = input.temperature >= 34 ? 4 : 0
   const combinedRiskBoost =
-    input.rainfall >= 30 && input.windSpeed >= 45 ? 10 : 0
+    input.rainfall >= 15 && input.windSpeed >= 45 ? 10 : 0
+  // Heavy rain draining into a high tide or storm surge can't run off to
+  // sea, so coastal flooding compounds faster than either factor alone.
+  const coastalFloodBoost =
+    input.rainfall >= 7.5 &&
+    (input.tideLevel === "high" || input.tideLevel === "storm-surge")
+      ? 12
+      : 0
 
   const score = Math.min(
     100,
@@ -156,8 +184,10 @@ export function simulateWeatherRecommendation(
       floodRisk.score +
       visibility.score +
       stormSignal.score +
+      tide.score +
       heatPenalty +
-      combinedRiskBoost
+      combinedRiskBoost +
+      coastalFloodBoost
   )
 
   const level: RecommendationLevel =
@@ -178,8 +208,13 @@ export function simulateWeatherRecommendation(
   const factors = [
     {
       name: "Rainfall Intensity",
-      value: `${input.rainfall} mm (${rainfall.value})`,
+      value: `${input.rainfall} mm/hr (${rainfall.value})`,
       impact: rainfall.impact,
+    },
+    {
+      name: "Tide Level",
+      value: tide.value,
+      impact: tide.impact,
     },
     {
       name: "Wind Speed",
@@ -209,13 +244,18 @@ export function simulateWeatherRecommendation(
   ].sort((a, b) => impactOrder[b.impact] - impactOrder[a.impact])
 
   const reasons = [
-    rainfall.impact !== "normal" ? `rainfall is at ${input.rainfall} mm` : null,
+    rainfall.impact !== "normal" ? `rainfall is at ${input.rainfall} mm/hr` : null,
     wind.impact !== "normal" ? `wind speed is ${input.windSpeed} km/h` : null,
     floodRisk.impact !== "normal" ? `flood risk is ${input.floodRisk}` : null,
     visibility.impact !== "normal" ? `visibility is ${input.visibility}` : null,
     input.stormSignal !== "none"
       ? `storm advisory is ${stormSignal.value.toLowerCase()}`
       : null,
+    coastalFloodBoost > 0
+      ? `${tide.value.toLowerCase()} is compounding coastal flood risk`
+      : tide.impact !== "normal"
+        ? `tide level is ${tide.value.toLowerCase()}`
+        : null,
   ].filter(Boolean)
 
   const summary =

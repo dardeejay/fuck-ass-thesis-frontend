@@ -46,22 +46,29 @@ function riskLabel(level: ForecastStep["riskLevel"]) {
 const dayFormatter = new Intl.DateTimeFormat("en-PH", { weekday: "short", timeZone: "Asia/Manila" })
 const hourFormatter = new Intl.DateTimeFormat("en-PH", { hour: "numeric", hour12: true, timeZone: "Asia/Manila" })
 
+const FORECAST_STEP_HOURS = 3
+const FORECAST_DAYS = 5
+const MAX_STEPS = (FORECAST_DAYS * 24) / FORECAST_STEP_HOURS
+
 export function HourlyForecastStrip({ steps }: { steps: ForecastStep[] }) {
   if (steps.length === 0) return null
+
+  const visibleSteps = steps.slice(0, MAX_STEPS)
 
   return (
     <Card className="bg-card border-border">
       <CardHeader>
         <CardTitle>Upcoming Forecast</CardTitle>
         <CardDescription>
-          3-hour forecast steps from OpenWeatherMap, run through the same suspension model as
-          today&apos;s recommendation. That model was validated on daily conditions, so treat
-          these per-step suggestions as indicative — not a substitute for the recommendation above.
+          {FORECAST_DAYS}-day, 3-hour forecast steps from OpenWeatherMap, run through the same
+          suspension model as today&apos;s recommendation. That model was validated on daily
+          conditions, so treat these per-step suggestions as indicative — not a substitute for the
+          recommendation above.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex gap-3 overflow-x-auto pb-2">
-          {steps.map((step) => {
+          {visibleSteps.map((step) => {
             const Icon = iconForWeather(step.weatherId)
             return (
               <div
