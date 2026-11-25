@@ -45,7 +45,8 @@ export default async function RootLayout({
   const session = await getServerAuthSession()
 
   return (
-    <html lang="en" className="bg-background">
+    // next-themes sets the theme class/color-scheme on <html> before hydration.
+    <html lang="en" className="bg-background" suppressHydrationWarning>
       <body className={cn(inter.variable, fontMono.variable, 'font-sans antialiased')}>
         <AuthSessionProvider session={session}>
           <ThemeProvider>{children}</ThemeProvider>

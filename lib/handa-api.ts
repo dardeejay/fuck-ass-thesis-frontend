@@ -50,7 +50,7 @@ export type LivePredictionResponse = PredictionResponse & {
   pagasaWarning: PagasaWarning
   tcws: TcwsStatus
   conditionsUsed: PredictionRequest
-  sources: { rainfallSource: string; weatherSource: string }
+  sources: { rainfallSource: string; weatherSource: string; rainHistorySource: string }
 }
 
 export type ForecastStep = {
@@ -59,7 +59,9 @@ export type ForecastStep = {
   tmin: number
   rh: number
   windSpeed: number
-  rainfall: number
+  rainfall: number // this step's own 3-hour amount
+  rain24h: number // trailing totals the model actually scored
+  rain3daySum: number
   weatherId: number
   weatherMain: string
   probability: number
@@ -92,6 +94,9 @@ async function handaFetch<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json", ...init?.headers },
     // Live weather changes fast; never let Next.js cache these across requests.
     cache: "no-store",
+    // The backend bounds its own upstream calls (~4s, fetched concurrently);
+    // this only stops a hung backend from leaving the page loading forever.
+    signal: init?.signal ?? AbortSignal.timeout(20_000),
   })
 
   if (!response.ok) {
@@ -169,8 +174,10 @@ export async function getLivePrediction(): Promise<LivePredictionResponse> {
       rh: number
       wind_speed: number
       month: number
+      rain_3day_sum: number | null
+      rain_7day_sum: number | null
     }
-    sources: { rainfall_source: string; weather_source: string }
+    sources: { rainfall_source: string; weather_source: string; rain_history_source: string }
   }>("/v1/predictions/live")
 
   return {
@@ -199,8 +206,14 @@ export async function getLivePrediction(): Promise<LivePredictionResponse> {
       rh: data.conditions_used.rh,
       windSpeed: data.conditions_used.wind_speed,
       month: data.conditions_used.month,
+      rain3daySum: data.conditions_used.rain_3day_sum ?? undefined,
+      rain7daySum: data.conditions_used.rain_7day_sum ?? undefined,
     },
-    sources: { rainfallSource: data.sources.rainfall_source, weatherSource: data.sources.weather_source },
+    sources: {
+      rainfallSource: data.sources.rainfall_source,
+      weatherSource: data.sources.weather_source,
+      rainHistorySource: data.sources.rain_history_source,
+    },
   }
 }
 
@@ -216,6 +229,8 @@ export async function getForecast(): Promise<Forecast> {
       rh: number
       wind_speed: number
       rainfall: number
+      rain_24h: number
+      rain_3day_sum: number
       weather_id: number
       weather_main: string
       probability: number
@@ -235,6 +250,8 @@ export async function getForecast(): Promise<Forecast> {
       rh: s.rh,
       windSpeed: s.wind_speed,
       rainfall: s.rainfall,
+      rain24h: s.rain_24h,
+      rain3daySum: s.rain_3day_sum,
       weatherId: s.weather_id,
       weatherMain: s.weather_main,
       probability: s.probability,
@@ -464,4 +481,73 @@ export async function promoteModelVersion(versionId: number, promotedBy?: string
     { method: "POST", body: JSON.stringify({ promoted_by: promotedBy }) }
   )
   return mapModelVersion(data)
+}
+
+export type ReplayPrediction = {
+  probability: number
+  riskLevel: "low" | "moderate" | "high"
+  recommendation: string
+}
+
+export type ReplayDay = {
+  date: string
+  conditions: PredictionRequest
+}
+
+export type ReplayResult = ReplayDay & {
+  actuallySuspended: boolean
+  liveModel: ReplayPrediction // trained on this day
+  heldOut: ReplayPrediction // refit without this day
+}
+
+type RawConditions = {
+  rainfall: number
+  tmax: number
+  tmin: number
+  rh: number
+  wind_speed: number
+  month: number
+  rain_3day_sum: number | null
+  rain_7day_sum: number | null
+}
+
+type RawReplayPrediction = { probability: number; risk_level: ReplayPrediction["riskLevel"]; recommendation: string }
+
+function mapConditions(c: RawConditions): PredictionRequest {
+  return {
+    rainfall: c.rainfall,
+    tmax: c.tmax,
+    tmin: c.tmin,
+    rh: c.rh,
+    windSpeed: c.wind_speed,
+    month: c.month,
+    rain3daySum: c.rain_3day_sum ?? undefined,
+    rain7daySum: c.rain_7day_sum ?? undefined,
+  }
+}
+
+function mapReplayPrediction(p: RawReplayPrediction): ReplayPrediction {
+  return { probability: p.probability, riskLevel: p.risk_level, recommendation: p.recommendation }
+}
+
+export async function getReplayDays(): Promise<ReplayDay[]> {
+  const data = await handaFetch<Array<{ date: string; conditions: RawConditions }>>("/v1/replay/days")
+  return data.map((d) => ({ date: d.date, conditions: mapConditions(d.conditions) }))
+}
+
+export async function replayDay(date: string): Promise<ReplayResult> {
+  const data = await handaFetch<{
+    date: string
+    conditions: RawConditions
+    actually_suspended: boolean
+    live_model: RawReplayPrediction
+    held_out: RawReplayPrediction
+  }>(`/v1/replay/${encodeURIComponent(date)}`)
+  return {
+    date: data.date,
+    conditions: mapConditions(data.conditions),
+    actuallySuspended: data.actually_suspended,
+    liveModel: mapReplayPrediction(data.live_model),
+    heldOut: mapReplayPrediction(data.held_out),
+  }
 }

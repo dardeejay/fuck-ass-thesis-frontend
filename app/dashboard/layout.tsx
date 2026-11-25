@@ -203,15 +203,16 @@ export default function DashboardLayout({
               variant="ghost"
               size="icon"
               className="ml-2 text-foreground"
+              aria-label="Toggle dark mode"
               onClick={() => {
                 setTheme(resolvedTheme === "dark" ? "light" : "dark")
               }}
             >
-              {resolvedTheme === "dark" ? (
-                <Sun className="h-5 w-5" />
-              ) : (
-                <Moon className="h-5 w-5" />
-              )}
+              {/* Both icons render; CSS picks one from the `.dark` class
+                  next-themes sets before hydration. resolvedTheme is unknown
+                  on the server, so branching on it causes a hydration mismatch. */}
+              <Sun className="hidden h-5 w-5 dark:block" />
+              <Moon className="h-5 w-5 dark:hidden" />
             </Button>
           </div>
         </header>

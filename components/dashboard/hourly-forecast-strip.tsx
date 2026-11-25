@@ -61,7 +61,8 @@ export function HourlyForecastStrip({ steps }: { steps: ForecastStep[] }) {
         <CardTitle>Upcoming Forecast</CardTitle>
         <CardDescription>
           {FORECAST_DAYS}-day, 3-hour forecast steps from OpenWeatherMap, run through the same
-          suspension model as today&apos;s recommendation. That model was validated on daily
+          suspension model as today&apos;s recommendation. Each step is scored on the rain
+          accumulated over the 24 hours and 3 days ending at that step. That model was validated on daily
           conditions, so treat these per-step suggestions as indicative — not a substitute for the
           recommendation above.
         </CardDescription>
@@ -80,7 +81,8 @@ export function HourlyForecastStrip({ steps }: { steps: ForecastStep[] }) {
                 </p>
                 <Icon className="h-6 w-6 text-chart-3" />
                 <p className="text-lg font-semibold text-foreground">{Math.round(step.tmax)}°C</p>
-                <p className="text-xs text-muted-foreground">{Math.round(step.rainfall)}mm rain</p>
+                <p className="text-xs text-muted-foreground">{Math.round(step.rainfall)}mm (3h)</p>
+                <p className="text-[11px] text-muted-foreground">{Math.round(step.rain24h)}mm past 24h</p>
                 <Badge variant="outline" className={`px-2 py-0.5 text-[11px] ${riskBadgeClass(step.riskLevel)}`}>
                   {riskLabel(step.riskLevel)}
                 </Badge>

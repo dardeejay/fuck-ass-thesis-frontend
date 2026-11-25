@@ -42,6 +42,27 @@ function getRecommendationColor(level: string) {
   }
 }
 
+// What each upstream source id means on screen. Fallbacks are flagged so a
+// viewer can tell live data from assumed values (e.g. no network at a venue).
+const SOURCE_INFO: Record<string, { label: string; fallback: boolean }> = {
+  pagasa: { label: "PAGASA warning", fallback: false },
+  "open-meteo-observed": { label: "Open-Meteo observed", fallback: true },
+  "pagasa-fallback": { label: "Assumed light rain", fallback: true },
+  openweathermap: { label: "OpenWeatherMap", fallback: false },
+  "climatology-fallback": { label: "Monthly averages", fallback: true },
+  "open-meteo": { label: "Open-Meteo observed", fallback: false },
+  unavailable: { label: "Unavailable", fallback: true },
+}
+
+function sourceBadges(live: { sources: { rainfallSource: string; weatherSource: string; rainHistorySource: string } }, hasForecast: boolean) {
+  return [
+    { name: "Rainfall", id: live.sources.rainfallSource },
+    { name: "Weather", id: live.sources.weatherSource },
+    { name: "Rain history", id: live.sources.rainHistorySource },
+    { name: "Forecast", id: hasForecast ? "openweathermap" : "unavailable" },
+  ].map(({ name, id }) => ({ name, ...(SOURCE_INFO[id] ?? { label: id, fallback: true }) }))
+}
+
 function getImpactBadge(impact: string) {
   switch (impact) {
     case "critical":
@@ -82,7 +103,8 @@ export default async function DashboardPage() {
 
   const heroConditions = outlook
     ? {
-        rainfall: outlook.peak.rainfall,
+        rainfall: outlook.peak.rain24h,
+        rain3daySum: outlook.peak.rain3daySum,
         tmax: outlook.peak.tmax,
         tmin: outlook.peak.tmin,
         rh: outlook.peak.rh,
@@ -92,6 +114,9 @@ export default async function DashboardPage() {
     : live.conditionsUsed
   const windKmh = Math.round(heroConditions.windSpeed * 3.6)
   const peakTimeLabel = outlook ? peakTimeFormatter.format(new Date(outlook.peak.timestamp)) : null
+
+  const sources = sourceBadges(live, forecast !== null)
+  const usingFallback = sources.some((source) => source.fallback)
 
   const currentWindKmh = Math.round(live.conditionsUsed.windSpeed * 3.6)
 
@@ -257,7 +282,7 @@ export default async function DashboardPage() {
                   </p>
                   <div className="mt-4 grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">Rainfall</p>
+                      <p className="text-sm text-muted-foreground">Rainfall (24h)</p>
                       <p className="text-2xl font-semibold text-foreground">{Math.round(heroConditions.rainfall)}mm</p>
                     </div>
                     <div>
@@ -271,6 +296,26 @@ export default async function DashboardPage() {
                     <div>
                       <p className="text-sm text-muted-foreground">PAGASA Warning</p>
                       <p className="text-xl font-semibold text-foreground">{live.pagasaWarning.level ?? "None"}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 border-t border-border/60 pt-3">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Data sources{usingFallback && " — some live data unavailable, using fallbacks"}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {sources.map((source) => (
+                        <Badge
+                          key={source.name}
+                          variant="outline"
+                          className={`px-2 py-0.5 text-[11px] ${
+                            source.fallback
+                              ? "border-warning/40 bg-warning/15 text-warning"
+                              : "border-border/70 text-muted-foreground"
+                          }`}
+                        >
+                          {source.name}: {source.label}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
                 </div>

@@ -1,6 +1,10 @@
 import { getServerAuthSession } from "@/auth"
+import { ReplayDayCard } from "@/components/dashboard/replay-day-card"
 import SimulationClient from "@/components/dashboard/simulation-client"
+import { getReplayDays } from "@/lib/handa-api"
 import { redirect } from "next/navigation"
+
+export const dynamic = "force-dynamic"
 
 export default async function SimulationPage() {
   const session = await getServerAuthSession()
@@ -22,5 +26,14 @@ export default async function SimulationPage() {
     )
   }
 
-  return <SimulationClient />
+  // The manual simulator works offline (it falls back to a local estimate),
+  // so a backend outage only hides the replay card rather than the page.
+  const replayDays = await getReplayDays().catch(() => null)
+
+  return (
+    <div className="space-y-6">
+      {replayDays && replayDays.length > 0 && <ReplayDayCard days={replayDays} />}
+      <SimulationClient />
+    </div>
+  )
 }
