@@ -15,22 +15,29 @@ const prisma = new PrismaClient({
   adapter,
 })
 
-async function main() {
-  const password = await hash('admin123', 12)
+// Production must supply its own admin password; the well-known dev default
+// is only allowed outside production.
+const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@olongapo.gov.ph'
+const adminPassword =
+  process.env.SEED_ADMIN_PASSWORD || (process.env.NODE_ENV === 'production' ? null : 'admin123')
 
+if (!adminPassword) {
+  throw new Error('SEED_ADMIN_PASSWORD must be set when NODE_ENV=production')
+}
+
+async function main() {
+  // Runs on every deploy (see the `migrate` service in docker-compose.yml),
+  // so an existing admin is left alone — a redeploy must not reset a
+  // password changed after the first seed.
   await prisma.user.upsert({
     where: {
-      email: 'admin@olongapo.gov.ph',
+      email: adminEmail,
     },
-    update: {
-      name: 'Admin User',
-      password,
-      role: 'ADMIN',
-    },
+    update: {},
     create: {
-      email: 'admin@olongapo.gov.ph',
+      email: adminEmail,
       name: 'Admin User',
-      password,
+      password: await hash(adminPassword, 12),
       role: 'ADMIN',
     },
   })

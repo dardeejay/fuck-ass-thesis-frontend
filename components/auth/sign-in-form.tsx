@@ -108,9 +108,13 @@ export function SignInForm() {
                 {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
 
-              <p className="border-t border-border pt-4 text-center text-sm text-muted-foreground">
-                Seeded admin: admin@olongapo.gov.ph / admin123
-              </p>
+              {/* Local-dev convenience only: production builds strip this, and
+                  the deployed admin's password comes from SEED_ADMIN_PASSWORD. */}
+              {process.env.NODE_ENV === 'development' && (
+                <p className="border-t border-border pt-4 text-center text-sm text-muted-foreground">
+                  Seeded admin: admin@olongapo.gov.ph / admin123
+                </p>
+              )}
             </form>
           </CardContent>
         </Card>

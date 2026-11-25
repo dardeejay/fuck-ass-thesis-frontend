@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -37,7 +37,7 @@ services:
       # project-handa-backend/app/db.py.
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-project_handa}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     healthcheck:
       test:
         [
@@ -49,6 +49,23 @@ services:
       retries: 5
       start_period: 10s
 
+  # One-shot: applies Prisma migrations and seeds the admin user, then exits.
+  # The runtime `web` image is a standalone build without the Prisma CLI, so
+  # this reuses the Dockerfile's `builder` stage, which has it.
+  migrate:
+    build:
+      context: .
+      target: builder
+    restart: "no"
+    command: sh -c "npx prisma migrate deploy && node prisma/seed.mjs"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-project_handa}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@olongapo.gov.ph}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin123}
+
   web:
     build:
       context: .
@@ -59,6 +76,8 @@ services:
         condition: service_healthy
       handa-api:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       AUTH_SECRET: ${AUTH_SECRET}
       # Service-name hostname (compose's internal network), not localhost —
@@ -71,7 +90,7 @@ services:
       POSTGRES_PORT: 5432
       HANDA_API_URL: http://handa-api:8000
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
 
 volumes:
   postgres_data:

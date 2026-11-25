@@ -1,0 +1,43 @@
+# Production override for a single server (see DEPLOY.md):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Adds Caddy in front of the web app for automatic HTTPS, and refuses to start
+# without real secrets instead of falling back to the local-dev defaults.
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+
+  handa-api:
+    environment:
+      CORS_ORIGINS: https://${DOMAIN:?set DOMAIN in .env}
+
+  migrate:
+    environment:
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD in .env}
+
+  web:
+    environment:
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      # next-auth v4 builds its callback URLs from this behind a proxy.
+      NEXTAUTH_URL: https://${DOMAIN:?set DOMAIN in .env}
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: project-handa-caddy
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
